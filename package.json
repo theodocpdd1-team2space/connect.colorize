@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "NODE_ENV=production node server.js",
     "seed:colorize": "node scripts/seed-colorize-vendor.js",
+    "seed:colorize-lifetime": "node scripts/seed-colorize-lifetime.js",
     "lint": "next lint"
   },
   "dependencies": {
