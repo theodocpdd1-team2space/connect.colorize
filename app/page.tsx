@@ -48,7 +48,7 @@ export default function HomePage() {
       <section className="page-shell grid gap-4 md:grid-cols-3">
         {[
           ["Create Room", "Vendor login dashboard, create event room, display QR join link."],
-          ["Crew Join", "Crew scan QR, enter name and role, allow microphone."],
+          ["Crew Join", "Crew scan QR, enter name, allow microphone."],
           ["Talk", "Push-to-Talk or Toggle Mic using WebRTC audio-only."]
         ].map(([title, body]) => (
           <div key={title} className="glass rounded-[1.5rem] p-5">

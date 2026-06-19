@@ -58,7 +58,6 @@ function publicUsers(roomId) {
   return Array.from(getRoomUsers(roomId).values()).map((user) => ({
     id: user.id,
     name: user.name,
-    role: user.role,
     speaking: user.speaking,
     joinedAt: user.joinedAt
   }));
@@ -202,11 +201,10 @@ io.on("connection", (socket) => {
   socket.on("join-room", (payload = {}) => {
     const roomId = String(payload.roomId || "").trim();
     const name = String(payload.name || "").trim();
-    const role = String(payload.role || "").trim();
     const pin = String(payload.pin || "");
 
-    if (!roomId || !name || !role) {
-      socket.emit("join-error", { message: "Name, role, and room are required." });
+    if (!roomId || !name) {
+      socket.emit("join-error", { message: "Name and room are required." });
       return;
     }
 
@@ -222,7 +220,6 @@ io.on("connection", (socket) => {
       roomId,
       vendorId: validation.room.vendor_id,
       name,
-      role,
       speaking: false,
       joinedAt: new Date().toISOString(),
       userAgent: socket.handshake.headers["user-agent"] || ""
@@ -238,8 +235,8 @@ io.on("connection", (socket) => {
       iceServers: []
     });
     socket.to(roomId).emit("user-joined", user);
-    logRoomUserJoined({ socketId: socket.id, roomId, name, role, joinedAt: user.joinedAt, userAgent: user.userAgent });
-    logEvent({ vendorId: validation.room.vendor_id, roomId, type: "user-joined", message: `${name} joined as ${role}` });
+    logRoomUserJoined({ socketId: socket.id, roomId, name, role: "Crew", joinedAt: user.joinedAt, userAgent: user.userAgent });
+    logEvent({ vendorId: validation.room.vendor_id, roomId, type: "user-joined", message: `${name} joined` });
     emitRoomUsers(roomId);
   });
 

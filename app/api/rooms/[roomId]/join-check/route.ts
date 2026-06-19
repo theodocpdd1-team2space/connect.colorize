@@ -7,9 +7,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ roo
   const { roomId } = await params;
   const body = await request.json();
   const name = String(body.name || "").trim();
-  const role = String(body.role || "").trim();
-  if (!name || !role) {
-    return NextResponse.json({ message: "Name and role are required." }, { status: 400 });
+  if (!name) {
+    return NextResponse.json({ message: "Name is required." }, { status: 400 });
   }
   const validation = validateRoomForJoin(roomId, String(body.pin || ""));
   if (!validation.ok) {

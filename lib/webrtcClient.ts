@@ -3,12 +3,38 @@
 import type { Socket } from "socket.io-client";
 
 export type RemoteStreamHandler = (userId: string, stream: MediaStream) => void;
+export type AudioMode = "low-latency" | "clean-voice";
 
 export type PeerUser = {
   id: string;
   name: string;
-  role: string;
 };
+
+export function getAudioConstraints(mode: AudioMode, noiseReduction: boolean): MediaStreamConstraints {
+  const processingEnabled = mode === "clean-voice" ? noiseReduction : noiseReduction;
+  return {
+    audio: {
+      echoCancellation: processingEnabled,
+      noiseSuppression: processingEnabled,
+      autoGainControl: processingEnabled,
+      channelCount: 1,
+      sampleRate: 48000,
+      sampleSize: 16
+    },
+    video: false
+  };
+}
+
+async function optimizeAudioSender(sender: RTCRtpSender) {
+  try {
+    const params = sender.getParameters();
+    params.encodings = params.encodings?.length ? params.encodings : [{}];
+    params.encodings[0].maxBitrate = 32000;
+    await sender.setParameters(params);
+  } catch {
+    // Some mobile browsers do not support sender parameter updates.
+  }
+}
 
 export class EasyComWebRTC {
   private peers = new Map<string, RTCPeerConnection>();
@@ -24,13 +50,34 @@ export class EasyComWebRTC {
     this.iceServers = iceServers;
   }
 
-  async getMicrophone() {
-    this.localStream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-      video: false
-    });
+  async getMicrophone(mode: AudioMode = "low-latency", noiseReduction = false) {
+    this.localStream = await navigator.mediaDevices.getUserMedia(getAudioConstraints(mode, noiseReduction));
     this.setMicEnabled(false);
     return this.localStream;
+  }
+
+  async applyAudioSettings(mode: AudioMode, noiseReduction: boolean) {
+    const oldStream = this.localStream;
+    const nextStream = await navigator.mediaDevices.getUserMedia(getAudioConstraints(mode, noiseReduction));
+    const [nextTrack] = nextStream.getAudioTracks();
+    if (!nextTrack) {
+      nextStream.getTracks().forEach((track) => track.stop());
+      throw new Error("No microphone track available.");
+    }
+
+    nextTrack.enabled = false;
+    this.localStream = nextStream;
+
+    const replacements = Array.from(this.peers.values()).flatMap((pc) =>
+      pc.getSenders()
+        .filter((sender) => sender.track?.kind === "audio")
+        .map(async (sender) => {
+          await sender.replaceTrack(nextTrack);
+          await optimizeAudioSender(sender);
+        })
+    );
+    await Promise.allSettled(replacements);
+    oldStream?.getTracks().forEach((track) => track.stop());
   }
 
   setMicEnabled(enabled: boolean) {
@@ -90,7 +137,11 @@ export class EasyComWebRTC {
     });
 
     this.localStream?.getTracks().forEach((track) => {
-      if (this.localStream) pc.addTrack(track, this.localStream);
+      if (!this.localStream) return;
+      const sender = pc.addTrack(track, this.localStream);
+      if (track.kind === "audio") {
+        void optimizeAudioSender(sender);
+      }
     });
 
     pc.onicecandidate = (event) => {

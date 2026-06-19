@@ -6,9 +6,9 @@ import ConnectionBadge from "@/components/ConnectionBadge";
 import MicControl, { MicMode } from "@/components/MicControl";
 import UserList, { RoomUser } from "@/components/UserList";
 import { getSocket, resetSocket } from "@/lib/socketClient";
-import { EasyComWebRTC } from "@/lib/webrtcClient";
+import { AudioMode, EasyComWebRTC } from "@/lib/webrtcClient";
 
-type CrewProfile = { name: string; role: string; pin?: string };
+type CrewProfile = { name: string; pin?: string };
 type Status = "Connecting" | "Connected" | "Reconnecting" | "Mic Blocked" | "Disconnected";
 
 export default function WebRoomPage() {
@@ -20,6 +20,8 @@ export default function WebRoomPage() {
   const [users, setUsers] = useState<RoomUser[]>([]);
   const [selfId, setSelfId] = useState("");
   const [mode, setMode] = useState<MicMode>("ptt");
+  const [audioMode, setAudioMode] = useState<AudioMode>("low-latency");
+  const [noiseReduction, setNoiseReduction] = useState(false);
   const [isMicOn, setIsMicOn] = useState(false);
   const [speakerMuted, setSpeakerMuted] = useState(false);
   const [audioUnlockNeeded, setAudioUnlockNeeded] = useState(false);
@@ -56,13 +58,13 @@ export default function WebRoomPage() {
 
     async function start() {
       try {
-        await rtc.getMicrophone();
+        await rtc.getMicrophone("low-latency", false);
       } catch {
         setStatus("Mic Blocked");
         setWarning("Microphone access blocked. Please allow microphone permission and open EasyCom through HTTPS.");
       }
       socket.connect();
-      socket.emit("join-room", { roomId: params.roomId, name: crew.name, role: crew.role, pin: crew.pin || "" });
+      socket.emit("join-room", { roomId: params.roomId, name: crew.name, pin: crew.pin || "" });
     }
 
     socket.on("connect", () => {
@@ -160,6 +162,29 @@ export default function WebRoomPage() {
     setMode(nextMode);
   }
 
+  async function applyAudioSettings(nextAudioMode: AudioMode, nextNoiseReduction: boolean) {
+    micOff();
+    try {
+      await rtcRef.current?.applyAudioSettings(nextAudioMode, nextNoiseReduction);
+      setWarning("Audio setting changed. Please rejoin room if the change does not apply.");
+    } catch {
+      setWarning("Audio setting changed. Please rejoin room if the change does not apply.");
+    }
+  }
+
+  function changeAudioMode(nextAudioMode: AudioMode) {
+    const defaultNoiseReduction = nextAudioMode === "clean-voice";
+    setAudioMode(nextAudioMode);
+    setNoiseReduction(defaultNoiseReduction);
+    void applyAudioSettings(nextAudioMode, defaultNoiseReduction);
+  }
+
+  function toggleNoiseReduction() {
+    const nextNoiseReduction = !noiseReduction;
+    setNoiseReduction(nextNoiseReduction);
+    void applyAudioSettings(audioMode, nextNoiseReduction);
+  }
+
   function unlockAudio() {
     audioContainerRef.current?.querySelectorAll("audio").forEach((audio) => audio.play().catch(() => undefined));
     setAudioUnlockNeeded(false);
@@ -181,8 +206,7 @@ export default function WebRoomPage() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-sm font-black uppercase text-cyan-200">{eventName}</p>
-              <h1 className="mt-1 text-3xl font-black">{profile?.role || "Crew"}</h1>
-              <p className="mt-1 text-sm text-slate-300">{profile?.name}</p>
+              <h1 className="mt-1 text-3xl font-black">{profile?.name || "Crew"}</h1>
             </div>
             <div className="flex flex-col items-end gap-2">
               <ConnectionBadge status={status} />
@@ -192,7 +216,7 @@ export default function WebRoomPage() {
         </div>
 
         <div className="rounded-2xl border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-50">
-          Server handles room and signaling only. Audio is designed for peer-to-peer connection when all crew are on the same Wi-Fi/hotspot.
+          Ultra-low latency Web Mode. Server handles room and signaling only. Audio uses local peer-to-peer when possible.
         </div>
         {warning ? <div className="rounded-2xl border border-amber-200/25 bg-amber-200/10 p-3 text-sm text-amber-50">{warning}</div> : null}
         {audioUnlockNeeded ? <button className="btn-primary w-full" type="button" onClick={unlockAudio}>Tap to enable audio</button> : null}
@@ -202,13 +226,52 @@ export default function WebRoomPage() {
         </div>
 
         <div className="glass rounded-[1.5rem] p-6">
+          <div className="mb-4 space-y-3">
+            <div className="grid grid-cols-2 rounded-2xl border border-white/10 bg-black/25 p-1">
+              {(["low-latency", "clean-voice"] as AudioMode[]).map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => changeAudioMode(item)}
+                  className={`rounded-xl px-3 py-3 text-sm font-black transition ${
+                    audioMode === item ? "bg-cyan-300 text-slate-950" : "text-slate-200"
+                  }`}
+                >
+                  {item === "low-latency" ? "Low Latency" : "Clean Voice"}
+                </button>
+              ))}
+            </div>
+            <button
+              className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-3 text-left text-sm font-bold text-slate-100"
+              type="button"
+              onClick={toggleNoiseReduction}
+            >
+              <span>Noise Reduction</span>
+              <span className={`rounded-full px-3 py-1 text-xs ${noiseReduction ? "bg-cyan-300 text-slate-950" : "bg-white/10 text-slate-200"}`}>
+                {noiseReduction ? "On" : "Off"}
+              </span>
+            </button>
+            <div className="rounded-2xl border border-amber-200/25 bg-amber-200/10 p-3 text-sm text-amber-50">
+              {audioMode === "low-latency" && !noiseReduction
+                ? "Low Latency Mode reduces processing for faster response. Use wired headset to avoid echo."
+                : audioMode === "low-latency"
+                  ? "Noise Reduction is on. Voice processing may add a little delay."
+                  : noiseReduction
+                    ? "Clean Voice Mode reduces background noise, but may add a little processing delay."
+                    : "Clean Voice processing is off. This uses lower processing constraints for minim delay."}
+            </div>
+          </div>
           <MicControl mode={mode} isMicOn={isMicOn} isSpeaking={isMicOn} onModeChange={changeMode} onMicOn={micOn} onMicOff={micOff} disabled={status === "Mic Blocked" || status === "Disconnected"} />
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-sm text-slate-200">
+          For minimum delay, connect all crew to the same Wi-Fi/hotspot and use wired headset. Bluetooth headset may add noticeable delay. Clean Voice may add slight processing delay.
         </div>
 
         <div className="grid grid-cols-3 gap-2">
           <button className="btn-secondary px-2 text-sm" type="button" onClick={() => setSpeakerMuted((value) => !value)}>{speakerMuted ? "Speaker Off" : "Mute Speaker"}</button>
           <button className="btn-secondary px-2 text-sm" type="button" onClick={() => leave(true)}>Leave Room</button>
-          <button className="btn-secondary px-2 text-sm" type="button" onClick={() => setWarning("Use wired headset for best result. Bluetooth headset may add delay. Keep all crew on the same Wi-Fi/hotspot for best local audio path. Keep phone screen active during event.")}>Settings/help</button>
+          <button className="btn-secondary px-2 text-sm" type="button" onClick={() => setWarning("Best result when all crew use the same Wi-Fi/hotspot. Keep phone screen active during event.")}>Settings/help</button>
         </div>
       </section>
     </main>

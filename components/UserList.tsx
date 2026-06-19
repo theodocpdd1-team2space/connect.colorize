@@ -1,7 +1,6 @@
 export type RoomUser = {
   id: string;
   name: string;
-  role: string;
   speaking?: boolean;
 };
 
@@ -24,8 +23,12 @@ export default function UserList({ users, selfId }: UserListProps) {
                 {user.id === selfId ? (
                   <span className="rounded-full bg-cyan-300/15 px-2 py-0.5 text-[0.7rem] font-bold text-cyan-100">You</span>
                 ) : null}
+                {user.speaking ? (
+                  <span className="rounded-full bg-emerald-300/15 px-2 py-0.5 text-[0.7rem] font-bold text-emerald-100">Speaking</span>
+                ) : user.id !== selfId ? (
+                  <span className="rounded-full bg-white/10 px-2 py-0.5 text-[0.7rem] font-bold text-slate-300">Online</span>
+                ) : null}
               </div>
-              <p className="truncate text-sm text-slate-300">{user.role}</p>
             </div>
             <span
               className={`h-3 w-3 rounded-full ${user.speaking ? "bg-emerald-300 shadow-[0_0_18px_rgba(110,231,183,0.9)]" : "bg-slate-500"}`}
