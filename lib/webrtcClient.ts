@@ -4,6 +4,13 @@ import type { Socket } from "socket.io-client";
 
 export type RemoteStreamHandler = (userId: string, stream: MediaStream) => void;
 export type AudioMode = "low-latency" | "clean-voice";
+export type PeerHealth = {
+  connectionType: "Local" | "Internet" | "Unknown";
+  latencyLabel: "Excellent" | "Good" | "Fair" | "Poor" | "Unknown";
+  rttMs: number | null;
+  jitter: number | null;
+  packetsLost: number | null;
+};
 
 export type PeerUser = {
   id: string;
@@ -29,7 +36,8 @@ async function optimizeAudioSender(sender: RTCRtpSender) {
   try {
     const params = sender.getParameters();
     params.encodings = params.encodings?.length ? params.encodings : [{}];
-    params.encodings[0].maxBitrate = 32000;
+    params.encodings[0].maxBitrate = 24000;
+    (params.encodings[0] as RTCRtpEncodingParameters & { priority?: string }).priority = "high";
     await sender.setParameters(params);
   } catch {
     // Some mobile browsers do not support sender parameter updates.
@@ -113,6 +121,40 @@ export class EasyComWebRTC {
     await pc.addIceCandidate(new RTCIceCandidate(candidate));
   }
 
+  async getHealth(): Promise<PeerHealth> {
+    const peers = Array.from(this.peers.values());
+    for (const pc of peers) {
+      try {
+        const stats = await pc.getStats();
+        let selectedPair: any = null;
+        const candidates = new Map<string, any>();
+        stats.forEach((report: any) => {
+          if (report.type === "candidate-pair" && report.state === "succeeded" && (report.selected || !selectedPair)) {
+            selectedPair = report;
+          }
+          if (report.type === "local-candidate" || report.type === "remote-candidate") {
+            candidates.set(report.id, report);
+          }
+        });
+        if (selectedPair) {
+          const local = candidates.get(selectedPair.localCandidateId);
+          const remote = candidates.get(selectedPair.remoteCandidateId);
+          const rttMs = typeof selectedPair.currentRoundTripTime === "number" ? Math.round(selectedPair.currentRoundTripTime * 1000) : null;
+          return {
+            connectionType: local?.candidateType === "host" && remote?.candidateType === "host" ? "Local" : "Internet",
+            latencyLabel: labelLatency(rttMs),
+            rttMs,
+            jitter: typeof selectedPair.jitter === "number" ? selectedPair.jitter : null,
+            packetsLost: typeof selectedPair.packetsLost === "number" ? selectedPair.packetsLost : null
+          };
+        }
+      } catch {
+        // Ignore stats errors and try the next peer.
+      }
+    }
+    return { connectionType: "Unknown", latencyLabel: "Unknown", rttMs: null, jitter: null, packetsLost: null };
+  }
+
   closePeer(userId: string) {
     const pc = this.peers.get(userId);
     if (pc) {
@@ -133,7 +175,10 @@ export class EasyComWebRTC {
     if (existing) return existing;
 
     const pc = new RTCPeerConnection({
-      iceServers: this.iceServers
+      iceServers: this.iceServers,
+      bundlePolicy: "max-bundle",
+      rtcpMuxPolicy: "require",
+      iceCandidatePoolSize: 0
     });
 
     this.localStream?.getTracks().forEach((track) => {
@@ -162,4 +207,12 @@ export class EasyComWebRTC {
     this.peers.set(userId, pc);
     return pc;
   }
+}
+
+function labelLatency(rttMs: number | null): PeerHealth["latencyLabel"] {
+  if (rttMs === null) return "Unknown";
+  if (rttMs <= 20) return "Excellent";
+  if (rttMs <= 60) return "Good";
+  if (rttMs <= 120) return "Fair";
+  return "Poor";
 }

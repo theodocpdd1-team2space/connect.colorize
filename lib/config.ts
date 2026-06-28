@@ -1,13 +1,17 @@
 export const APP_CONFIG = {
   productName: "Solusivendor EasyCom",
   tagline: "Easy connection. Clear communication. Better events.",
-  appUrl: process.env.APP_URL || "https://connect.colorizevisual.com",
+  appUrl: process.env.APP_URL || "https://easycom.vjmrtim.my.id",
   port: Number(process.env.PORT || 3010),
   platformAdminKey: process.env.PLATFORM_ADMIN_KEY || "change-this-admin-key",
+  lynkIdCheckoutUrl: process.env.LYNK_ID_CHECKOUT_URL || "#",
+  adminWhatsapp: process.env.ADMIN_WHATSAPP || "0895345902896",
+  preferHostCandidates: process.env.PREFER_HOST_CANDIDATES !== "false",
   freeTrialDays: Number(process.env.FREE_TRIAL_DAYS || 7),
   trialMaxUsers: Number(process.env.TRIAL_MAX_USERS || 2),
   webLicenseMaxUsers: Number(process.env.WEB_LICENSE_MAX_USERS || 50),
   recommendedActiveUsers: Number(process.env.RECOMMENDED_ACTIVE_USERS || 12),
+  paidMaxActiveRooms: Number(process.env.PAID_MAX_ACTIVE_ROOMS || 999),
   defaultRoomPin: process.env.DEFAULT_ROOM_PIN || ""
 };
 

@@ -6,7 +6,7 @@ import ConnectionBadge from "@/components/ConnectionBadge";
 import MicControl, { MicMode } from "@/components/MicControl";
 import UserList, { RoomUser } from "@/components/UserList";
 import { getSocket, resetSocket } from "@/lib/socketClient";
-import { AudioMode, EasyComWebRTC } from "@/lib/webrtcClient";
+import { AudioMode, EasyComWebRTC, PeerHealth } from "@/lib/webrtcClient";
 
 type CrewProfile = { name: string; pin?: string };
 type Status = "Connecting" | "Connected" | "Reconnecting" | "Mic Blocked" | "Disconnected";
@@ -22,6 +22,16 @@ export default function WebRoomPage() {
   const [mode, setMode] = useState<MicMode>("ptt");
   const [audioMode, setAudioMode] = useState<AudioMode>("low-latency");
   const [noiseReduction, setNoiseReduction] = useState(false);
+  const [keepAwake, setKeepAwake] = useState(true);
+  const [wakeLockStatus, setWakeLockStatus] = useState<"On" | "Off" | "Unsupported">("Off");
+  const [signalLatency, setSignalLatency] = useState<number | null>(null);
+  const [peerHealth, setPeerHealth] = useState<PeerHealth>({
+    connectionType: "Unknown",
+    latencyLabel: "Unknown",
+    rttMs: null,
+    jitter: null,
+    packetsLost: null
+  });
   const [isMicOn, setIsMicOn] = useState(false);
   const [speakerMuted, setSpeakerMuted] = useState(false);
   const [audioUnlockNeeded, setAudioUnlockNeeded] = useState(false);
@@ -29,6 +39,7 @@ export default function WebRoomPage() {
   const audioContainerRef = useRef<HTMLDivElement>(null);
   const rtcRef = useRef<EasyComWebRTC | null>(null);
   const joinedRef = useRef(false);
+  const wakeLockRef = useRef<any>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem(`easycomCrew:${params.roomId}`);
@@ -65,6 +76,7 @@ export default function WebRoomPage() {
       }
       socket.connect();
       socket.emit("join-room", { roomId: params.roomId, name: crew.name, pin: crew.pin || "" });
+      void requestWakeLock();
     }
 
     socket.on("connect", () => {
@@ -78,6 +90,10 @@ export default function WebRoomPage() {
     socket.io.on("reconnect_attempt", () => {
       micOff();
       setStatus("Reconnecting");
+    });
+    socket.io.on("reconnect", () => {
+      micOff();
+      socket.emit("join-room", { roomId: params.roomId, name: crew.name, pin: crew.pin || "" });
     });
     socket.on("join-accepted", ({ selfId: id, users: roomUsers, room }) => {
       joinedRef.current = true;
@@ -118,13 +134,34 @@ export default function WebRoomPage() {
     });
 
     function handleVisibility() {
-      if (document.hidden) micOff();
+      if (document.hidden) {
+        micOff();
+      } else {
+        void requestWakeLock();
+      }
+    }
+    function handlePageExit() {
+      micOff();
+      socket.emit("ptt-state", { roomId: params.roomId, speaking: false });
     }
     document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("pagehide", handlePageExit);
+    window.addEventListener("beforeunload", handlePageExit);
+    const pingTimer = window.setInterval(() => {
+      socket.emit("latency-ping", { sentAt: Date.now() });
+      rtc.getHealth().then(setPeerHealth).catch(() => undefined);
+    }, 2000);
+    socket.on("latency-pong", ({ sentAt }) => {
+      if (typeof sentAt === "number") setSignalLatency(Date.now() - sentAt);
+    });
     start();
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("pagehide", handlePageExit);
+      window.removeEventListener("beforeunload", handlePageExit);
+      window.clearInterval(pingTimer);
+      void releaseWakeLock();
       rtc.closeAll();
       socket.removeAllListeners();
       socket.io.removeAllListeners("reconnect_attempt");
@@ -179,6 +216,38 @@ export default function WebRoomPage() {
     void applyAudioSettings(nextAudioMode, defaultNoiseReduction);
   }
 
+  async function requestWakeLock(force = false) {
+    if (!force && !keepAwake) return;
+    if (!("wakeLock" in navigator)) {
+      setWakeLockStatus("Unsupported");
+      return;
+    }
+    try {
+      wakeLockRef.current = await (navigator as any).wakeLock.request("screen");
+      wakeLockRef.current.addEventListener?.("release", () => setWakeLockStatus("Off"));
+      setWakeLockStatus("On");
+    } catch {
+      setWakeLockStatus("Off");
+    }
+  }
+
+  async function releaseWakeLock() {
+    try {
+      await wakeLockRef.current?.release?.();
+    } catch {
+      // Wake Lock release may fail if the browser already released it.
+    }
+    wakeLockRef.current = null;
+    setWakeLockStatus("Off");
+  }
+
+  function toggleWakeLock() {
+    const next = !keepAwake;
+    setKeepAwake(next);
+    if (next) void requestWakeLock(true);
+    else void releaseWakeLock();
+  }
+
   function toggleNoiseReduction() {
     const nextNoiseReduction = !noiseReduction;
     setNoiseReduction(nextNoiseReduction);
@@ -211,12 +280,15 @@ export default function WebRoomPage() {
             <div className="flex flex-col items-end gap-2">
               <ConnectionBadge status={status} />
               <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-3 py-1 text-xs font-bold text-cyan-100">Web Mode</span>
+              <span className="rounded-full border border-emerald-300/25 bg-emerald-300/10 px-3 py-1 text-xs font-bold text-emerald-100">Keep Awake: {wakeLockStatus}</span>
+              <span className="rounded-full border border-fuchsia-300/25 bg-fuchsia-300/10 px-3 py-1 text-xs font-bold text-fuchsia-100">Latency: {peerHealth.latencyLabel}</span>
             </div>
           </div>
         </div>
 
         <div className="rounded-2xl border border-cyan-200/20 bg-cyan-200/10 p-3 text-sm text-cyan-50">
           Ultra-low latency Web Mode. Server handles room and signaling only. Audio uses local peer-to-peer when possible.
+          <span className="mt-1 block text-xs text-cyan-100">Connection: {peerHealth.connectionType} · Signal: {signalLatency === null ? "Unknown" : `${signalLatency}ms`} · Peer RTT: {peerHealth.rttMs === null ? "Unknown" : `${peerHealth.rttMs}ms`}</span>
         </div>
         {warning ? <div className="rounded-2xl border border-amber-200/25 bg-amber-200/10 p-3 text-sm text-amber-50">{warning}</div> : null}
         {audioUnlockNeeded ? <button className="btn-primary w-full" type="button" onClick={unlockAudio}>Tap to enable audio</button> : null}
@@ -237,7 +309,7 @@ export default function WebRoomPage() {
                     audioMode === item ? "bg-cyan-300 text-slate-950" : "text-slate-200"
                   }`}
                 >
-                  {item === "low-latency" ? "Low Latency" : "Clean Voice"}
+                  {item === "low-latency" ? "Ultra Low Latency" : "Clean Voice"}
                 </button>
               ))}
             </div>
@@ -253,7 +325,7 @@ export default function WebRoomPage() {
             </button>
             <div className="rounded-2xl border border-amber-200/25 bg-amber-200/10 p-3 text-sm text-amber-50">
               {audioMode === "low-latency" && !noiseReduction
-                ? "Low Latency Mode reduces processing for faster response. Use wired headset to avoid echo."
+                ? "Ultra Low Latency reduces audio processing for faster response. Use wired headset to avoid echo."
                 : audioMode === "low-latency"
                   ? "Noise Reduction is on. Voice processing may add a little delay."
                   : noiseReduction
@@ -265,13 +337,14 @@ export default function WebRoomPage() {
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-sm text-slate-200">
-          For minimum delay, connect all crew to the same Wi-Fi/hotspot and use wired headset. Bluetooth headset may add noticeable delay. Clean Voice may add slight processing delay.
+          For the lowest delay, connect all crew to the same Wi-Fi/hotspot and use wired headset. Bluetooth may add noticeable delay. Keep screen active during event.
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <button className="btn-secondary px-2 text-sm" type="button" onClick={toggleWakeLock}>Keep Screen Awake: {keepAwake ? "On" : "Off"}</button>
           <button className="btn-secondary px-2 text-sm" type="button" onClick={() => setSpeakerMuted((value) => !value)}>{speakerMuted ? "Speaker Off" : "Mute Speaker"}</button>
           <button className="btn-secondary px-2 text-sm" type="button" onClick={() => leave(true)}>Leave Room</button>
-          <button className="btn-secondary px-2 text-sm" type="button" onClick={() => setWarning("Best result when all crew use the same Wi-Fi/hotspot. Keep phone screen active during event.")}>Settings/help</button>
+          <button className="btn-secondary px-2 text-sm" type="button" onClick={() => setWarning("Phone lock may pause microphone or WebRTC in web mode. Keep screen active for reliable communication.")}>Settings/help</button>
         </div>
       </section>
     </main>

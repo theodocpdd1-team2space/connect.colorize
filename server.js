@@ -122,8 +122,28 @@ function makeLicenseKey() {
   return `EC-2026-${part()}-${part()}`;
 }
 
+globalThis.__easycomRoomRuntime = {
+  resetRoomSession(roomId) {
+    io.to(roomId).emit("admin-reset-room", { message: "Room reset by platform admin." });
+    getRoomUsers(roomId).clear();
+    io.in(roomId).disconnectSockets(true);
+    emitRoomUsers(roomId);
+  },
+  endRoomSession(roomId) {
+    endRoom(roomId);
+    io.to(roomId).emit("room-ended", { message: "Room ended by platform admin." });
+    getRoomUsers(roomId).clear();
+    io.in(roomId).disconnectSockets(true);
+    emitRoomUsers(roomId);
+  }
+};
+
 io.on("connection", (socket) => {
   socket.emit("server-ready", { mode: "web", socketId: socket.id, version: "0.2.0-web" });
+
+  socket.on("latency-ping", ({ sentAt } = {}) => {
+    socket.emit("latency-pong", { sentAt, serverAt: Date.now() });
+  });
 
   socket.on("monitor-room", ({ roomId } = {}) => {
     if (!roomId) return;
@@ -183,19 +203,12 @@ io.on("connection", (socket) => {
 
   socket.on("admin-reset-room", ({ adminKey, roomId } = {}) => {
     if (String(adminKey || "") !== platformAdminKey || !roomId) return;
-    io.to(roomId).emit("admin-reset-room", { message: "Room reset by platform admin." });
-    getRoomUsers(roomId).clear();
-    io.in(roomId).disconnectSockets(true);
-    emitRoomUsers(roomId);
+    globalThis.__easycomRoomRuntime.resetRoomSession(roomId);
   });
 
   socket.on("room-ended", ({ adminKey, roomId } = {}) => {
     if (String(adminKey || "") !== platformAdminKey || !roomId) return;
-    endRoom(roomId);
-    io.to(roomId).emit("room-ended", { message: "Room ended." });
-    getRoomUsers(roomId).clear();
-    io.in(roomId).disconnectSockets(true);
-    emitRoomUsers(roomId);
+    globalThis.__easycomRoomRuntime.endRoomSession(roomId);
   });
 
   socket.on("join-room", (payload = {}) => {

@@ -1,84 +1,96 @@
 import Link from "next/link";
-import PricingCard from "@/components/PricingCard";
+import { APP_CONFIG } from "@/lib/config";
+
+const whatsappText =
+  "Halo%20saya%20sudah%20bayar%20EasyCom%2049rb%2C%20mohon%20dibantu%20aktivasi%20lisensinya";
+const whatsappUrl = `https://wa.me/62${APP_CONFIG.adminWhatsapp.replace(/^0/, "")}?text=${whatsappText}`;
+
+const features = [
+  "QR Join",
+  "Push-to-Talk",
+  "Toggle Mic",
+  "Ultra Low Latency Mode",
+  "Clean Voice",
+  "Noise Reduction",
+  "Keep Screen Awake",
+  "Up to 50 users per room",
+  "Recommended 12 active crew",
+  "Works with Xiaomi Hotspot",
+  "No Discord needed"
+];
 
 export default function HomePage() {
   return (
     <main>
-      <section className="page-shell grid min-h-[92vh] items-center gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+      <section className="page-shell grid min-h-[92vh] items-center gap-8 lg:grid-cols-[1.05fr_0.95fr]">
         <div>
-          <p className="text-sm font-black uppercase text-cyan-200">Solusivendor EasyCom</p>
+          <p className="text-sm font-black uppercase text-cyan-200">EasyCom · Web Intercom for Event Crew</p>
           <h1 className="mt-4 max-w-4xl text-5xl font-black leading-tight text-white sm:text-7xl">
             Turn your crew&apos;s phone into an event intercom.
           </h1>
           <p className="mt-5 max-w-2xl text-lg text-slate-200">
-            Use router or Xiaomi hotspot, phone, and wired headset. No Discord. No complicated setup.
+            Cukup hotspot/router, HP, dan headset. Crew scan QR, tekan mic, langsung komunikasi. Cocok untuk live streaming, multicam, wedding, graduation, seminar, dan church production.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
-            <Link className="btn-primary" href="/trial">
-              Start Free Trial
-            </Link>
-            <Link className="btn-secondary" href="/login">
-              Login
-            </Link>
-            <Link className="btn-secondary" href="/pricing">
-              See Pricing
-            </Link>
+            <a className="btn-primary" href={APP_CONFIG.lynkIdCheckoutUrl}>Buy License Rp49.000</a>
+            <Link className="btn-secondary" href="/trial">Start Free Trial</Link>
+            <Link className="btn-secondary" href="/login">Login</Link>
           </div>
+          <p className="mt-4 text-sm text-slate-400">After payment, our admin will activate your EasyCom license manually and send your login access.</p>
+          <a className="mt-3 inline-flex text-sm font-bold text-cyan-200" href={whatsappUrl}>Confirm Payment via WhatsApp</a>
         </div>
-        <div className="glass rounded-[1.75rem] p-5">
-          <div className="rounded-[1.35rem] border border-cyan-300/25 bg-cyan-300/10 p-5">
-            <p className="text-sm font-black uppercase text-cyan-100">Web Mode MVP</p>
-            <div className="mt-5 grid gap-3">
-              {[
-                "Router or Xiaomi hotspot + phone + headset.",
-                "Web Mode requires internet for room and signaling.",
-                "Audio is designed for peer-to-peer connection when all crew are on the same Wi-Fi/hotspot.",
-                "Use wired headset for best result.",
-                "Up to 50 connected users, recommended 12 active crew."
-              ].map((item) => (
-                <div key={item} className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm font-semibold text-slate-100">
-                  {item}
+
+        <div className="glass relative overflow-hidden rounded-[2rem] p-5">
+          <div className="absolute inset-x-6 top-8 h-20 rounded-full bg-cyan-300/20 blur-3xl" />
+          <div className="relative rounded-[1.5rem] border border-cyan-300/25 bg-black/30 p-5">
+            <div className="flex items-center justify-between">
+              <span className="rounded-full bg-cyan-300 px-3 py-1 text-xs font-black text-slate-950">Ultra Low Latency</span>
+              <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-3 py-1 text-xs font-black text-emerald-100">QR Join</span>
+            </div>
+            <div className="mx-auto mt-8 flex aspect-square w-48 items-center justify-center rounded-full border border-cyan-200/40 bg-gradient-to-br from-cyan-300 to-blue-500 text-center text-slate-950 shadow-glow">
+              <div>
+                <p className="text-4xl font-black">MIC</p>
+                <p className="text-xs font-black uppercase">Hold to Talk</p>
+              </div>
+            </div>
+            <div className="mt-8 grid gap-2">
+              {["Theo — You", "Nathan — Online", "Matthew — Speaking"].map((item, index) => (
+                <div key={item} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-3 text-sm font-bold text-slate-100">
+                  <span>{item}</span>
+                  <span className={`h-3 w-3 rounded-full ${index === 2 ? "bg-fuchsia-400 shadow-[0_0_18px_rgba(232,121,249,0.9)]" : "bg-emerald-300"}`} />
                 </div>
               ))}
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-xs font-bold text-cyan-100">Clean Voice</div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-xs font-bold text-emerald-100">Noise Reduction</div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="page-shell grid gap-4 md:grid-cols-3">
-        {[
-          ["Create Room", "Vendor login dashboard, create event room, display QR join link."],
-          ["Crew Join", "Crew scan QR, enter name, allow microphone."],
-          ["Talk", "Push-to-Talk or Toggle Mic using WebRTC audio-only."]
-        ].map(([title, body]) => (
-          <div key={title} className="glass rounded-[1.5rem] p-5">
-            <h2 className="text-2xl font-black">{title}</h2>
-            <p className="mt-2 text-slate-300">{body}</p>
-          </div>
-        ))}
+      <section className="page-shell">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {features.map((feature) => (
+            <div key={feature} className="glass rounded-[1.5rem] p-5">
+              <p className="text-lg font-black text-white">{feature}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="page-shell grid gap-4 lg:grid-cols-2">
         <div className="glass rounded-[1.5rem] p-6">
-          <h2 className="text-3xl font-black">Xiaomi Hotspot Setup</h2>
+          <h2 className="text-3xl font-black">Optimized for event production</h2>
           <p className="mt-3 text-slate-300">
-            Xiaomi hotspot provides both internet and a local Wi-Fi network. For best local audio path, keep all crew on the same hotspot/router.
+            Optimized for ultra-low latency local communication when all crew are on the same Wi-Fi/hotspot. Actual delay depends on phone, browser, headset, and network.
           </p>
         </div>
         <div className="glass rounded-[1.5rem] p-6">
-          <h2 className="text-3xl font-black">FAQ</h2>
+          <h2 className="text-3xl font-black">Web first, simple setup</h2>
           <p className="mt-3 text-slate-300">
-            Server handles website, login, QR, room, and Socket.IO WebRTC signaling only. Server does not process, store, record, or relay audio for MVP.
+            Server handles website, login, QR, room, and Socket.IO WebRTC signaling only. Audio is not stored or recorded.
           </p>
-        </div>
-      </section>
-
-      <section className="page-shell">
-        <h2 className="mb-4 text-3xl font-black">Pricing Preview</h2>
-        <div className="grid gap-4 md:grid-cols-3">
-          <PricingCard title="Free Trial" price="Free" description="7 days for small testing." features={["Max 2 users", "1 active room", "QR join", "Push-to-talk", "Toggle mic"]} cta="Start Free Trial" href="/trial" />
-          <PricingCard title="EasyCom Web License" price="Rp249.000" description="Lifetime use with 1 year update." features={["1 active room/session", "Up to 50 connected users", "Recommended 12 active crew"]} cta="Buy / Contact Admin" href="/pricing" />
-          <PricingCard title="Machine Hub" price="Coming soon" description="Future offline event mode." features={["Offline mode", "No internet during event", "Dedicated Machine Hub"]} cta="Coming Soon" muted />
         </div>
       </section>
     </main>

@@ -43,7 +43,7 @@ export function createPaidLicense(values: {
     status: "active",
     maxUsers: values.maxUsers || APP_CONFIG.webLicenseMaxUsers,
     recommendedUsers: APP_CONFIG.recommendedActiveUsers,
-    maxActiveRooms: values.maxActiveRooms || 1,
+    maxActiveRooms: values.maxActiveRooms || APP_CONFIG.paidMaxActiveRooms,
     lifetimeUse: true,
     activatedAt: now(),
     updateUntil: values.updateUntil || addDays(new Date(), 365).toISOString()

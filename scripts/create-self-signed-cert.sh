@@ -2,4 +2,4 @@
 set -euo pipefail
 
 echo "Local self-signed certificate generation is deprecated for EasyCom Web Mode."
-echo "Use HTTPS from Nginx, Certbot, or Cloudflare for connect.colorizevisual.com."
+echo "Use HTTPS from Nginx, Certbot, or Cloudflare for easycom.vjmrtim.my.id."

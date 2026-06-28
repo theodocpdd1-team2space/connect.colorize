@@ -41,18 +41,36 @@ export default function DashboardPage() {
             <p className="mt-2 text-slate-300">
               {data.trialDaysRemaining !== null ? `${data.trialDaysRemaining} trial days remaining` : `License status: ${data.entitlement.primary?.status || "inactive"}`}
             </p>
+            <p className="mt-3 rounded-2xl border border-cyan-300/25 bg-cyan-300/10 p-3 text-sm font-bold text-cyan-50">
+              Your plan includes all EasyCom Web features. Max 50 users per room, recommended 12 active crew, many rooms included.
+            </p>
             <div className="mt-5 flex flex-wrap gap-3">
               <Link className="btn-primary" href="/create-room">Create Room</Link>
-              <Link className="btn-secondary" href="/pricing">View Pricing</Link>
+              <a className="btn-secondary" href="#rooms">View Rooms</a>
+              <a className="btn-secondary" href="#event-day">Event Day Checklist</a>
             </div>
           </section>
           <div className="grid gap-3 sm:grid-cols-4">
             <StatusCard label="Active Rooms" value={`${data.activeRoomCount}/${data.entitlement.maxActiveRooms}`} />
             <StatusCard label="Plan" value={data.entitlement.primary?.plan || "none"} />
-            <StatusCard label="Max Users" value={data.entitlement.maxUsers} />
-            <StatusCard label="Recommended" value={data.entitlement.recommendedUsers} />
+            <StatusCard label="Max Users Per Room" value={data.entitlement.maxUsers} />
+            <StatusCard label="Recommended Active Crew" value={data.entitlement.recommendedUsers} />
           </div>
-          <section className="glass overflow-x-auto rounded-[1.5rem] p-5">
+          <section id="event-day" className="glass rounded-[1.5rem] p-5">
+            <h2 className="text-2xl font-black">Event Day Quick Setup</h2>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+              {[
+                "Turn on hotspot/router",
+                "Ask crew to connect to same Wi-Fi",
+                "Create room",
+                "Share QR",
+                "Use wired headset"
+              ].map((item) => (
+                <div key={item} className="rounded-2xl border border-white/10 bg-white/5 p-3 text-sm font-bold text-slate-100">{item}</div>
+              ))}
+            </div>
+          </section>
+          <section id="rooms" className="glass overflow-x-auto rounded-[1.5rem] p-5">
             <h2 className="text-2xl font-black">Recent Rooms</h2>
             <table className="mt-4 w-full min-w-[680px] text-left text-sm">
               <thead className="text-cyan-100"><tr><th className="p-3">Event name</th><th className="p-3">Date</th><th className="p-3">Users</th><th className="p-3">Status</th><th className="p-3">Action</th></tr></thead>

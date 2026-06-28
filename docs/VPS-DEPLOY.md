@@ -3,11 +3,11 @@
 Target:
 
 ```text
-Domain: connect.colorizevisual.com
+Domain: easycom.vjmrtim.my.id
 Internal app port: 3010
 Runtime: Node.js + PM2
-Reverse proxy: Nginx
-HTTPS: Nginx or Cloudflare
+Reverse proxy: Nginx or Cloudflare Tunnel
+HTTPS: Nginx, Certbot, or Cloudflare
 Database: SQLite local server file
 ```
 
@@ -24,10 +24,9 @@ sudo npm install -g pm2
 ## App Setup
 
 ```bash
-cd /opt
-sudo git clone <your-repo-url> easycom
-sudo chown -R $USER:$USER /opt/easycom
-cd /opt/easycom
+cd /var/www
+git clone <your-repo-url> connect-colorize
+cd /var/www/connect-colorize
 cp .env.example .env
 npm install
 npm run build
@@ -40,22 +39,30 @@ Minimum `.env`:
 ```env
 NODE_ENV=production
 PORT=3010
-APP_URL=https://connect.colorizevisual.com
+APP_URL=https://easycom.vjmrtim.my.id
 DATABASE_PATH=./data/easycom.sqlite
 PLATFORM_ADMIN_KEY=change-this-admin-key
+LYNK_ID_CHECKOUT_URL=https://lynk.id/ISI-LINK-KAMU
+ADMIN_WHATSAPP=0895345902896
 ENABLE_STUN=false
+STUN_URLS=
 ENABLE_TURN=false
+TURN_URL=
+TURN_USERNAME=
+TURN_PASSWORD=
+PREFER_HOST_CANDIDATES=true
 FREE_TRIAL_DAYS=7
 TRIAL_MAX_USERS=2
 WEB_LICENSE_MAX_USERS=50
 RECOMMENDED_ACTIVE_USERS=12
+PAID_MAX_ACTIVE_ROOMS=999
 ```
 
 ## Nginx Reverse Proxy
 
 ```nginx
 server {
-    server_name connect.colorizevisual.com;
+    server_name easycom.vjmrtim.my.id;
 
     location / {
         proxy_pass http://127.0.0.1:3010;
@@ -71,16 +78,15 @@ server {
 }
 ```
 
-Enable site and reload:
+## Cloudflared Ingress Example
 
-```bash
-sudo ln -s /etc/nginx/sites-available/easycom /etc/nginx/sites-enabled/easycom
-sudo nginx -t
-sudo systemctl reload nginx
+```yaml
+- hostname: easycom.vjmrtim.my.id
+  service: http://localhost:3010
 ```
 
-## HTTPS Notes
+## Notes
 
-Use Cloudflare SSL or Certbot on the VPS. Socket.IO/WebSocket must pass through HTTPS with the `Upgrade` and `Connection` headers above.
+Socket.IO/WebSocket must pass through HTTPS with the `Upgrade` and `Connection` headers above.
 
-For MVP, EasyCom does not use TURN relay. Server provides website, login, room, QR join, and WebRTC signaling only. Audio is designed for peer-to-peer connection when all crew are on the same Wi-Fi/hotspot.
+For MVP, EasyCom does not use TURN relay by default. Server provides website, login, license, room, QR join, and WebRTC signaling only. Audio is not stored or recorded.

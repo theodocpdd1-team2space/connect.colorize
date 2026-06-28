@@ -124,7 +124,7 @@ async function main() {
 
   console.log("Colorize lifetime seed completed.");
   console.log("Login:");
-  console.log("https://connect.colorizevisual.com/login");
+  console.log("https://easycom.vjmrtim.my.id/login");
   console.log("Email:");
   console.log("theofilus267@gmail.com");
   console.log("WhatsApp:");

@@ -44,6 +44,7 @@ export default function CrewJoinPage() {
       <section className="glass w-full max-w-xl rounded-[1.75rem] p-6">
         <p className="text-sm font-black uppercase text-cyan-200">Join Web Intercom</p>
         <h1 className="mt-3 text-4xl font-black">{roomName}</h1>
+        <p className="mt-3 text-sm text-slate-300">Connect to the same Wi-Fi/hotspot, use wired headset, then join.</p>
         <form className="mt-6 space-y-4" onSubmit={submit}>
           <input className="input-field" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
           {pinEnabled ? <input className="input-field" placeholder="Room PIN" value={pin} onChange={(e) => setPin(e.target.value)} /> : null}
